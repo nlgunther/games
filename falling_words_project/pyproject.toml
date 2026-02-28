@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "falling-words"
+version = "0.2.1"
+description = "A customizable touch-typing game."
+requires-python = ">=3.8"
+dependencies = [
+    "pygame>=2.0.0",
+    "loguru>=0.7.0"
+]
+
+[project.scripts]
+falling-words = "falling_words.game:main"
+
+[tool.setuptools]
+packages = ["falling_words"]
+
+[tool.setuptools.package-data]
+falling_words = ["*.json"]
