@@ -84,7 +84,7 @@ coverage.xml
 *.db
 *.xml
 *.txt
-*.png
+# *.png
 *.md
 *.npz
 *.html
