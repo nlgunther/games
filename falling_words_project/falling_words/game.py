@@ -113,6 +113,61 @@ class Button:
     def handle_event(self, event):
         return event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.rect.collidepoint(event.pos)
 
+class Dropdown:
+    def __init__(self, x, y, width, height, options, selected_index=0):
+        self.rect = pygame.Rect(x, y, width, height)
+        self.options = options
+        self.selected_index = selected_index
+        self.is_open = False
+        self.color = (180, 100, 0)
+        self.hover_color = ORANGE
+        self.current_color = self.color
+        
+        self.open_rects = []
+        for i in range(len(options)):
+            self.open_rects.append(pygame.Rect(x, y + (i + 1) * height, width, height))
+            
+    def draw(self, surface):
+        pygame.draw.rect(surface, self.current_color, self.rect, border_radius=4)
+        pygame.draw.rect(surface, WHITE, self.rect, 2, border_radius=4)
+        
+        indicator_x = self.rect.right - 20
+        indicator_y = self.rect.centery
+        if self.is_open:
+            pygame.draw.polygon(surface, WHITE, [(indicator_x-6, indicator_y+4), (indicator_x+6, indicator_y+4), (indicator_x, indicator_y-4)])
+        else:
+            pygame.draw.polygon(surface, WHITE, [(indicator_x-6, indicator_y-4), (indicator_x+6, indicator_y-4), (indicator_x, indicator_y+4)])
+            
+        text_surf = small_font.render(f"{self.options[self.selected_index]}", True, WHITE)
+        text_rect = text_surf.get_rect(center=(self.rect.centerx - 10, self.rect.centery))
+        surface.blit(text_surf, text_rect)
+        
+        if self.is_open:
+            for i, opt_rect in enumerate(self.open_rects):
+                pygame.draw.rect(surface, (150, 80, 0), opt_rect)
+                pygame.draw.rect(surface, WHITE, opt_rect, 1)
+                opt_text = small_font.render(self.options[i], True, WHITE)
+                surface.blit(opt_text, opt_text.get_rect(center=opt_rect.center))
+                
+    def update(self, mouse_pos):
+        self.current_color = self.hover_color if self.rect.collidepoint(mouse_pos) else self.color
+
+    def handle_event(self, event):
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.is_open:
+                for i, opt_rect in enumerate(self.open_rects):
+                    if opt_rect.collidepoint(event.pos):
+                        self.selected_index = i
+                        self.is_open = False
+                        return self.options[i]
+                self.is_open = False
+                return "CLOSED"
+            else:
+                if self.rect.collidepoint(event.pos):
+                    self.is_open = True
+                    return "OPENED"
+        return None
+
 class Word:
     def __init__(self, x, y, text, speed):
         self.x = x
@@ -151,9 +206,12 @@ class Game:
             x=WIDTH - 380, y=20, width=110, height=40,
             text="🌌 FX ON", color=(100, 0, 150), hover_color=PURPLE
         )
-        self.level_button = Button(
-            x=WIDTH - 640, y=20, width=250, height=40,
-            text=f"LVL: {self.word_manager.current_level}", color=(180, 100, 0), hover_color=ORANGE
+        
+        level_names = self.word_manager.level_names
+        current_idx = level_names.index(self.word_manager.current_level) if self.word_manager.current_level in level_names else 0
+        self.dropdown = Dropdown(
+            x=WIDTH - 640, y=20, width=250, height=40, 
+            options=level_names, selected_index=current_idx
         )
         
         self.reset_game()
@@ -215,13 +273,15 @@ class Game:
         if self.game_over or self.victory:
             return
         
+        if self.dropdown.is_open:
+            return
+
         if event.key == pygame.K_BACKSPACE:
             self.handle_backspace()
             self.backspace_pressed = True
             self.backspace_last_time = pygame.time.get_ticks()
             self.made_mistake = True
         
-        # Support for both Spacebar and Enter/Return to submit a word
         elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
             matched = False
             for word in self.words[:]:
@@ -284,6 +344,9 @@ class Game:
         if self.victory or self.game_over:
             return
         
+        if self.dropdown.is_open:
+            return
+            
         self.update_backspace_repeat()
         current_time = pygame.time.get_ticks()
         
@@ -338,8 +401,7 @@ class Game:
         self.diff_button.draw(screen)
         self.fx_button.update(mouse_pos)
         self.fx_button.draw(screen)
-        self.level_button.update(mouse_pos)
-        self.level_button.draw(screen)
+        self.dropdown.update(mouse_pos)
         
         if not self.victory and not self.game_over:
             for word in self.words:
@@ -380,7 +442,7 @@ class Game:
             screen.blit(small_font.render("TYPE:", True, GREEN), (50, HEIGHT - 80))
             input_surface = font.render(f"{self.current_input}", True, GREEN)
             screen.blit(input_surface, (150, HEIGHT - 88))
-            if pygame.time.get_ticks() % 1000 < 500:
+            if not self.dropdown.is_open and pygame.time.get_ticks() % 1000 < 500:
                 cursor_x = 150 + input_surface.get_width()
                 pygame.draw.line(screen, GREEN, (cursor_x, HEIGHT - 85), (cursor_x, HEIGHT - 45), 4)
         
@@ -417,6 +479,8 @@ class Game:
             
             restart_text = small_font.render("Click RESET button to play again", True, WHITE)
             screen.blit(restart_text, restart_text.get_rect(center=(WIDTH//2, HEIGHT - 50)))
+
+        self.dropdown.draw(screen)
         
         pygame.display.flip()
 
@@ -431,24 +495,33 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            elif event.type == pygame.KEYDOWN:
-                game.handle_input(event)
-            elif event.type == pygame.KEYUP:
-                game.handle_keyup(event)
-            elif game.reset_button.handle_event(event):
+                
+            dropdown_event = game.dropdown.handle_event(event)
+            
+            if dropdown_event == "OPENED" or dropdown_event == "CLOSED":
+                continue 
+            elif dropdown_event:
+                game.word_manager.set_level(dropdown_event)
                 game.reset_game()
-            elif game.diff_button.handle_event(event):
-                game.difficulty_index = (game.difficulty_index + 1) % len(game.difficulties)
-                game.diff_button.text = game.difficulties[game.difficulty_index]
-                game.reset_game()
-            elif game.fx_button.handle_event(event):
-                game.sprite_manager.toggle()
-                game.fx_button.text = "🌌 FX ON" if game.sprite_manager.enabled else "🌌 FX OFF"
-            elif game.level_button.handle_event(event):
-                new_level = game.word_manager.cycle_level()
-                game.level_button.text = f"LVL: {new_level}"
-                game.reset_game()
-        
+                continue
+                
+            if not game.dropdown.is_open:
+                if game.reset_button.handle_event(event):
+                    game.reset_game()
+                elif game.diff_button.handle_event(event):
+                    game.difficulty_index = (game.difficulty_index + 1) % len(game.difficulties)
+                    game.diff_button.text = game.difficulties[game.difficulty_index]
+                    game.reset_game()
+                elif game.fx_button.handle_event(event):
+                    game.sprite_manager.toggle()
+                    game.fx_button.text = "🌌 FX ON" if game.sprite_manager.enabled else "🌌 FX OFF"
+            
+            if event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
+                if event.type == pygame.KEYDOWN:
+                    game.handle_input(event)
+                elif event.type == pygame.KEYUP:
+                    game.handle_keyup(event)
+                    
         game.update()
         game.draw()
         clock.tick(FPS)

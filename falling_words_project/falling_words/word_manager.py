@@ -37,14 +37,6 @@ class WordManager:
         else:
             logger.warning(f"Level '{level_name}' not found.")
 
-    def cycle_level(self):
-        if not self.level_names:
-            return "default"
-        current_idx = self.level_names.index(self.current_level)
-        next_idx = (current_idx + 1) % len(self.level_names)
-        self.set_level(self.level_names[next_idx])
-        return self.current_level
-
     def get_word(self):
         if not self.levels or not self.current_level:
             return "error"
