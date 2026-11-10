@@ -1,22 +1,27 @@
 [build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.8,<0.14"]
+build-backend = "uv_build"
 
 [project]
 name = "falling-words"
-version = "3.1.0"
-description = "A customizable touch-typing game."
-requires-python = ">=3.8"
+version = "3.2.0"
+description = "A customizable touch-typing game, graded by keyboard row."
+requires-python = ">=3.11,<3.14"   # pygame wheels lag the newest Python
 dependencies = [
-    "pygame>=2.0.0",
-    "loguru>=0.7.0"
+    "pygame>=2.5",
+    "loguru>=0.7",
 ]
 
 [project.scripts]
 falling-words = "falling_words.game:main"
 
-[tool.setuptools]
-packages = ["falling_words"]
+[dependency-groups]
+dev = ["pytest>=8"]
+tools = ["wordfreq>=3.1"]   # only for tools/build_words.py
 
-[tool.setuptools.package-data]
-falling_words = ["*.json"]
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tools"]      # lets tests import build_words.rows_of (single source of truth)

@@ -1,7 +1,12 @@
+# /// script
+# requires-python = ">=3.11"
+# dependencies = ["pillow", "pyttsx3"]
+# ///
 # --------------------------------------------------------------
 #  IMPOSSIBLE DINOSAUR – SASSY, CHATTY, AND CORRECTLY NAMED
 # --------------------------------------------------------------
-#  • Image: purple_dinosaur.png
+#  • Image: purple_dinosaur.png (shared with the Falling Words assets)
+#  • Run with: uv run circle_game.py
 #  • Speaks on EVERY left-click
 #  • No errors, no silent clicks
 # --------------------------------------------------------------
@@ -59,14 +64,15 @@ class ImpossibleDinosaurGame:
         self.canvas.pack()
 
         # ----- LOAD IMAGE: purple_dinosaur.png -----
-        img_path = Path("purple_dinosaur.png")
+        # The image lives with Falling Words' assets, not next to this script.
+        img_path = Path(__file__).parent / "falling_words_project" / "src" / "falling_words" / "assets" / "purple_dinosaur.png"
         try:
             from PIL import Image, ImageTk
             img = Image.open(img_path).resize((40, 40), Image.Resampling.LANCZOS)
             self.dino_photo = ImageTk.PhotoImage(img)
             self.is_image = True
         except Exception as e:
-            print(f"Image 'purple_dinosaur.png' not found → using purple oval ({e})")
+            print(f"Image {img_path} not loaded → using purple oval ({e})")
             self.dino_photo = None
             self.is_image = False
 
@@ -179,17 +185,6 @@ class ImpossibleDinosaurGame:
 
 # ----------------------------------------------------------------------
 if __name__ == "__main__":
-    # Check for missing packages
-    missing = []
-    for mod in ("Pillow", "pyttsx3"):
-        try:
-            __import__(mod.lower().replace("-", "_"))
-        except ImportError:
-            missing.append(mod)
-    if missing:
-        print("Missing packages:", ", ".join(missing))
-        print("Run: pip install " + " ".join(missing))
-
     root = tk.Tk()
     game = ImpossibleDinosaurGame(root)
     root.mainloop()

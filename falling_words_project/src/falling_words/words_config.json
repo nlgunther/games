@@ -1,0 +1,106 @@
+{
+  "meta": {
+    "1 Home: left": {"grade": 1, "rows": "H", "kind": "left hand"},
+    "1 Home: right": {"grade": 1, "rows": "H", "kind": "right hand"},
+    "1 Home: all": {"grade": 1, "rows": "H", "kind": "words"},
+    "1 Top row": {"grade": 1, "rows": "T", "kind": "words"},
+    "1 Bottom row": {"grade": 1, "rows": "B", "kind": "drills"},
+    "2 Home+Top": {"grade": 2, "rows": "HT", "kind": "words"},
+    "2 Home+Bottom": {"grade": 2, "rows": "HB", "kind": "words"},
+    "2 Top+Bottom": {"grade": 2, "rows": "TB", "kind": "words"},
+    "3 All rows": {"grade": 3, "rows": "HTB", "kind": "words"},
+    "Theme: Cyber": {"grade": null, "rows": "mixed", "kind": "theme"},
+    "Theme: Lua": {"grade": null, "rows": "mixed", "kind": "theme"},
+    "Theme: Roblox": {"grade": null, "rows": "mixed", "kind": "theme"},
+    "Theme: Minecraft": {"grade": null, "rows": "mixed", "kind": "theme"},
+    "Theme: German": {"grade": null, "rows": "mixed", "kind": "theme"}
+  },
+  "levels": {
+    "1 Home: left": [
+      "ag", "fa", "gg", "gs", "aaa", "aas", "add", "ads", "dad", "dfs", "faa", "fad", "gag", "gas",
+      "gfd", "gfs", "ggd", "sad", "sag", "sgd", "adds", "adfs", "dads", "dfsa", "fgsg", "gsfg",
+      "saga", "sfgg", "sfsa", "ssad"
+    ],
+    "1 Home: right": [
+      "hj", "hk", "jj", "kj", "kl", "hjk", "hlj", "jlh", "khk", "kjj", "kkh", "lhl", "ljl", "lkj",
+      "llk", "hhlj", "hljk", "jjkh", "jkjl", "khlh", "khlj", "kjhk", "kjll", "klhj", "lhjk", "lhll",
+      "ljjl", "lkhh", "lkhl", "llhl"
+    ],
+    "1 Home: all": [
+      "add", "all", "ash", "ask", "dad", "fad", "gag", "gas", "had", "has", "sad", "sag", "adds",
+      "asks", "dash", "fall", "flag", "glad", "haha", "half", "hall", "lash", "saga", "sash",
+      "falls", "flags", "flash", "flask", "glass", "halls", "salad", "salsa", "shall", "slash",
+      "flasks", "hahaha", "salads"
+    ],
+    "1 Top row": [
+      "eye", "our", "out", "per", "put", "too", "top", "try", "two", "wow", "yet", "you", "pipe",
+      "poor", "quit", "rope", "tree", "trip", "true", "type", "weep", "were", "wire", "your",
+      "error", "power", "prior", "quiet", "quite", "quote", "route", "tower", "upper", "worry",
+      "write", "wrote", "equity", "output", "pepper", "poetry", "porter", "potter", "pretty",
+      "proper", "report", "retire", "router", "writer", "pottery", "require", "priority", "property",
+      "reporter"
+    ],
+    "1 Bottom row": [
+      "bb", "bc", "mb", "nb", "nv", "vc", "vn", "xz", "zm", "zz", "bbz", "bcc", "cmb", "mbc", "mxc",
+      "vvm", "xcx", "xnn", "xvv", "zxx", "ccnc", "cnbx", "cvcz", "mnzz", "mvnv", "nbnz", "vcnx",
+      "xmmz", "zbzm", "zmvc"
+    ],
+    "2 Home+Top": [
+      "are", "for", "get", "her", "his", "how", "its", "see", "she", "the", "was", "who", "also",
+      "good", "just", "like", "said", "that", "they", "this", "well", "what", "will", "with",
+      "after", "first", "other", "right", "still", "their", "there", "these", "those", "where",
+      "would", "years", "always", "either", "health", "little", "others", "people", "please",
+      "really", "series", "should", "states", "though", "already", "further", "history", "outside",
+      "players", "results", "started", "support", "thought", "through", "whether", "without",
+      "although", "daughter", "features", "followed", "hospital", "pressure", "released", "reported",
+      "required", "straight", "together", "yourself"
+    ],
+    "2 Home+Bottom": [
+      "and", "bad", "bag", "ban", "can", "dna", "fan", "mac", "mad", "man", "max", "van", "back",
+      "ball", "band", "bank", "call", "cash", "fans", "hand", "jack", "lack", "land", "mass",
+      "balls", "bands", "banks", "black", "blank", "calls", "canal", "class", "hands", "lands",
+      "naval", "small", "banana", "canvas", "snacks", "bananas", "mammals", "scandal", "backlash",
+      "scandals"
+    ],
+    "2 Top+Bottom": [
+      "bit", "but", "buy", "men", "new", "non", "not", "now", "one", "own", "run", "win", "been",
+      "comb", "into", "more", "next", "numb", "over", "time", "very", "vote", "zinc", "zoom",
+      "court", "cover", "event", "every", "money", "movie", "never", "point", "price", "union",
+      "voice", "women", "become", "better", "center", "common", "county", "entire", "member",
+      "moment", "number", "recent", "return", "review", "between", "century", "comment", "content",
+      "country", "current", "october", "opinion", "percent", "picture", "protect", "written",
+      "computer", "continue", "economic", "everyone", "interior", "internet", "movement", "november",
+      "province", "recovery", "remember", "tomorrow"
+    ],
+    "3 All rows": [
+      "act", "any", "big", "car", "end", "fun", "him", "job", "may", "six", "son", "tax", "camp",
+      "cave", "from", "have", "math", "maze", "name", "navy", "some", "them", "when", "xray",
+      "about", "bacon", "being", "cabin", "could", "going", "pizza", "since", "think", "vocal",
+      "which", "zebra", "around", "before", "called", "during", "family", "having", "person",
+      "public", "school", "second", "system", "things", "against", "another", "because", "believe",
+      "company", "general", "getting", "however", "looking", "nothing", "service", "someone",
+      "actually", "anything", "building", "business", "children", "national", "possible", "probably",
+      "question", "research", "services", "students"
+    ],
+    "Theme: Cyber": [
+      "firewall", "malware", "phishing", "botnet", "cipher", "token", "breach", "virus", "hacker",
+      "network", "crypto", "auth", "hash", "salt", "proxy"
+    ],
+    "Theme: Lua": [
+      "local", "function", "return", "end", "if", "then", "else", "elseif", "while", "do", "for",
+      "pairs", "ipairs", "math", "table", "insert"
+    ],
+    "Theme: Roblox": [
+      "workspace", "part", "script", "instance", "new", "vector", "cframe", "humanoid", "player",
+      "character", "connect", "wait", "server", "client", "gui"
+    ],
+    "Theme: Minecraft": [
+      "creeper", "diamond", "pickaxe", "obsidian", "redstone", "zombie", "skeleton", "nether",
+      "ender", "dragon", "potion", "enchant", "crafting", "bedrock"
+    ],
+    "Theme: German": [
+      "hallo", "danke", "bitte", "ja", "nein", "gut", "morgen", "hund", "katze", "haus", "wasser"
+    ]
+  },
+  "default_level": "1 Home: left"
+}

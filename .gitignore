@@ -19,6 +19,8 @@ __pycache__/
 
 # Python extras
 auxiliary/
+extra.zip
+extra/
 examples/
 *egg*/
 
@@ -77,6 +79,7 @@ coverage.xml
 *.pptx
 *.csv
 *.json
+!words_config.json
 
 # Other files
 *.log

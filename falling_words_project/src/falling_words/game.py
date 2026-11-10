@@ -1,13 +1,18 @@
-import pygame
+"""Falling Words: type each falling word and press Space or Enter before it reaches the bottom."""
 import random
 import sys
-import platform
-import winsound 
+
+import pygame
 from loguru import logger
 
-from .word_manager import WordManager
-from .sprite_manager import SpriteManager
+from . import sounds
 from .score_manager import ScoreManager
+from .sounds import play
+from .sprite_manager import SpriteManager
+from .ui import (BLACK, BLUE, DARK_BLUE, DARK_GREEN, DARK_RED, FONT_BIG, FONT_NORMAL, FONT_SMALL,
+                 GOLD, GREEN, ORANGE, PURPLE, RED, WHITE, YELLOW,
+                 Button, Dropdown, FloatingText, get_font)
+from .word_manager import WordManager
 
 TOTAL_WORDS = 30           
 SPEED_INCREASE_PER_WORD = 0.02  
@@ -28,145 +33,9 @@ DIFFICULTY_SETTINGS = {
     "EXPERT": 2.0
 }
 
-pygame.init()
-pygame.mixer.init()
-
 WIDTH, HEIGHT = 900, 650
 FPS = 60
 
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
-BLUE = (0, 100, 255)
-YELLOW = (255, 255, 0)
-PURPLE = (180, 0, 255)
-ORANGE = (255, 165, 0)
-DARK_GREEN = (0, 150, 0)
-DARK_RED = (150, 0, 0)
-DARK_BLUE = (0, 0, 150)
-GOLD = (255, 215, 0)
-
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Modular Falling Words")
-clock = pygame.time.Clock()
-font = pygame.font.Font(None, 48)
-small_font = pygame.font.Font(None, 32)
-big_font = pygame.font.Font(None, 72)
-button_font = pygame.font.Font(None, 36)
-
-def play_correct():
-    if platform.system() == "Windows": winsound.Beep(880, 150)
-
-def play_incorrect():
-    if platform.system() == "Windows": winsound.Beep(220, 200)
-
-def play_victory():
-    if platform.system() == "Windows": winsound.Beep(784, 3000)
-
-def play_game_over_good():
-    if platform.system() == "Windows": winsound.Beep(523, 3000)
-
-def play_game_over_bad():
-    if platform.system() == "Windows": winsound.Beep(196, 1000)
-
-class FloatingText:
-    def __init__(self, x, y, text, color):
-        self.x = x
-        self.y = y
-        self.text = text
-        self.color = color
-        self.alpha = 255
-        self.speed = 2
-        
-    def update(self):
-        self.y -= self.speed
-        self.alpha -= 5
-        
-    def draw(self, surface):
-        if self.alpha > 0:
-            text_surf = small_font.render(self.text, True, self.color)
-            text_surf.set_alpha(max(0, self.alpha))
-            surface.blit(text_surf, (self.x, self.y))
-
-class Button:
-    def __init__(self, x, y, width, height, text, color, hover_color):
-        self.rect = pygame.Rect(x, y, width, height)
-        self.text = text
-        self.color = color
-        self.hover_color = hover_color
-        self.current_color = color
-    
-    def draw(self, surface):
-        shadow_rect = self.rect.copy()
-        shadow_rect.y += 4
-        pygame.draw.rect(surface, (50, 50, 50), shadow_rect, border_radius=8)
-        pygame.draw.rect(surface, self.current_color, self.rect, border_radius=8)
-        pygame.draw.rect(surface, WHITE, self.rect, 2, border_radius=8)
-        text_surface = button_font.render(self.text, True, WHITE)
-        text_rect = text_surface.get_rect(center=self.rect.center)
-        surface.blit(text_surface, text_rect)
-    
-    def update(self, mouse_pos):
-        self.current_color = self.hover_color if self.rect.collidepoint(mouse_pos) else self.color
-    
-    def handle_event(self, event):
-        return event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.rect.collidepoint(event.pos)
-
-class Dropdown:
-    def __init__(self, x, y, width, height, options, selected_index=0):
-        self.rect = pygame.Rect(x, y, width, height)
-        self.options = options
-        self.selected_index = selected_index
-        self.is_open = False
-        self.color = (180, 100, 0)
-        self.hover_color = ORANGE
-        self.current_color = self.color
-        
-        self.open_rects = []
-        for i in range(len(options)):
-            self.open_rects.append(pygame.Rect(x, y + (i + 1) * height, width, height))
-            
-    def draw(self, surface):
-        pygame.draw.rect(surface, self.current_color, self.rect, border_radius=4)
-        pygame.draw.rect(surface, WHITE, self.rect, 2, border_radius=4)
-        
-        indicator_x = self.rect.right - 20
-        indicator_y = self.rect.centery
-        if self.is_open:
-            pygame.draw.polygon(surface, WHITE, [(indicator_x-6, indicator_y+4), (indicator_x+6, indicator_y+4), (indicator_x, indicator_y-4)])
-        else:
-            pygame.draw.polygon(surface, WHITE, [(indicator_x-6, indicator_y-4), (indicator_x+6, indicator_y-4), (indicator_x, indicator_y+4)])
-            
-        text_surf = small_font.render(f"{self.options[self.selected_index]}", True, WHITE)
-        text_rect = text_surf.get_rect(center=(self.rect.centerx - 10, self.rect.centery))
-        surface.blit(text_surf, text_rect)
-        
-        if self.is_open:
-            for i, opt_rect in enumerate(self.open_rects):
-                pygame.draw.rect(surface, (150, 80, 0), opt_rect)
-                pygame.draw.rect(surface, WHITE, opt_rect, 1)
-                opt_text = small_font.render(self.options[i], True, WHITE)
-                surface.blit(opt_text, opt_text.get_rect(center=opt_rect.center))
-                
-    def update(self, mouse_pos):
-        self.current_color = self.hover_color if self.rect.collidepoint(mouse_pos) else self.color
-
-    def handle_event(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            if self.is_open:
-                for i, opt_rect in enumerate(self.open_rects):
-                    if opt_rect.collidepoint(event.pos):
-                        self.selected_index = i
-                        self.is_open = False
-                        return self.options[i]
-                self.is_open = False
-                return "CLOSED"
-            else:
-                if self.rect.collidepoint(event.pos):
-                    self.is_open = True
-                    return "OPENED"
-        return None
 
 class Word:
     def __init__(self, x, y, text, speed):
@@ -180,14 +49,15 @@ class Word:
         self.y += self.speed
     
     def draw(self, surface):
-        word_surface = font.render(self.text, True, self.color)
+        word_surface = get_font(FONT_NORMAL).render(self.text, True, self.color)
         surface.blit(word_surface, (self.x, self.y))
     
     def is_off_screen(self):
         return self.y > HEIGHT - 100
 
 class Game:
-    def __init__(self):
+    def __init__(self, screen):
+        self.screen = screen
         self.word_manager = WordManager()
         self.sprite_manager = SpriteManager(width=WIDTH, height=HEIGHT, enabled=True)
         self.score_manager = ScoreManager()
@@ -289,7 +159,7 @@ class Game:
                     self.words.remove(word)
                     self.words_typed += 1
                     matched = True
-                    play_correct()
+                    play("correct")
                     
                     if not self.made_mistake:
                         self.score += 2
@@ -313,19 +183,19 @@ class Game:
                         self.is_new_high_score = self.score_manager.update_score(
                             self.word_manager.current_level, diff_name, accuracy, self.perfect_words
                         )
-                        play_victory()
+                        play("victory")
                     break
             
             if not matched:
                 self.current_input = ""
                 self.made_mistake = False
-                play_incorrect()
+                play("incorrect")
         
         elif event.unicode.isprintable():
             self.current_input += event.unicode
         elif event.key == pygame.K_k and pygame.key.get_mods() & pygame.KMOD_CTRL:
             self.current_input = ""  
-            play_incorrect()  
+            play("incorrect")  
             self.made_mistake = True
     
     def handle_keyup(self, event):
@@ -362,7 +232,7 @@ class Game:
                 self.words.remove(word)
                 self.total_missed += 1
                 self.total_attempts += 1
-                play_incorrect()
+                play("incorrect")
                 
                 if len(self.words) < MAX_WORDS_ON_SCREEN * 2 and pygame.time.get_ticks() > self.lag_end_time:
                     self.spawn_word()
@@ -381,114 +251,118 @@ class Game:
                 self.word_manager.current_level, diff_name, accuracy, self.perfect_words
             )
             if accuracy >= 50:
-                play_game_over_good()
+                play("game_over_good")
             else:
-                play_game_over_bad()
+                play("game_over_bad")
     
     def draw(self):
-        screen.fill(BLACK)
+        self.screen.fill(BLACK)
         for x in range(0, WIDTH, 50):
-            pygame.draw.line(screen, (20, 20, 20), (x, 0), (x, HEIGHT), 1)
+            pygame.draw.line(self.screen, (20, 20, 20), (x, 0), (x, HEIGHT), 1)
         for y in range(0, HEIGHT, 50):
-            pygame.draw.line(screen, (20, 20, 20), (0, y), (WIDTH, y), 1)
+            pygame.draw.line(self.screen, (20, 20, 20), (0, y), (WIDTH, y), 1)
             
-        self.sprite_manager.draw(screen)
+        self.sprite_manager.draw(self.screen)
         
         mouse_pos = pygame.mouse.get_pos()
         self.reset_button.update(mouse_pos)
-        self.reset_button.draw(screen)
+        self.reset_button.draw(self.screen)
         self.diff_button.update(mouse_pos)
-        self.diff_button.draw(screen)
+        self.diff_button.draw(self.screen)
         self.fx_button.update(mouse_pos)
-        self.fx_button.draw(screen)
+        self.fx_button.draw(self.screen)
         self.dropdown.update(mouse_pos)
         
         if not self.victory and not self.game_over:
             for word in self.words:
-                word.draw(screen)
+                word.draw(self.screen)
             for f_text in self.floating_texts:
-                f_text.draw(screen)
+                f_text.draw(self.screen)
         
-        score_text = big_font.render(f"{self.score}", True, GREEN)
-        screen.blit(score_text, (WIDTH - 150, 80))
-        score_label = small_font.render("SCORE", True, WHITE)
-        screen.blit(score_label, (WIDTH - 150, 140))
+        score_text = get_font(FONT_BIG).render(f"{self.score}", True, GREEN)
+        self.screen.blit(score_text, (WIDTH - 150, 80))
+        score_label = get_font(FONT_SMALL).render("SCORE", True, WHITE)
+        self.screen.blit(score_label, (WIDTH - 150, 140))
         
         progress_x, progress_y = WIDTH - 300, 180
         progress_width, progress_height = 250, 25
-        pygame.draw.rect(screen, (50, 50, 50), (progress_x, progress_y, progress_width, progress_height))
+        pygame.draw.rect(self.screen, (50, 50, 50), (progress_x, progress_y, progress_width, progress_height))
         if self.score > 0:
             fill_width = int((min(self.score, TOTAL_WORDS) / TOTAL_WORDS) * progress_width)
-            pygame.draw.rect(screen, GREEN, (progress_x, progress_y, fill_width, progress_height))
-        pygame.draw.rect(screen, WHITE, (progress_x, progress_y, progress_width, progress_height), 2)
-        progress_text = small_font.render(f"{self.score}/{TOTAL_WORDS} to win", True, WHITE)
-        screen.blit(progress_text, progress_text.get_rect(center=(progress_x + progress_width//2, progress_y + progress_height//2)))
+            pygame.draw.rect(self.screen, GREEN, (progress_x, progress_y, fill_width, progress_height))
+        pygame.draw.rect(self.screen, WHITE, (progress_x, progress_y, progress_width, progress_height), 2)
+        progress_text = get_font(FONT_SMALL).render(f"{self.score}/{TOTAL_WORDS} to win", True, WHITE)
+        self.screen.blit(progress_text, progress_text.get_rect(center=(progress_x + progress_width//2, progress_y + progress_height//2)))
         
         stats_x, stats_y = 20, 20
         current_speed = self.current_speed + (self.words_typed * SPEED_INCREASE_PER_WORD)
-        screen.blit(small_font.render(f"⚡ SPEED: {current_speed:.1f}", True, ORANGE), (stats_x, stats_y))
-        screen.blit(small_font.render(f"🌟 PERFECT: {self.perfect_words}", True, PURPLE), (stats_x, stats_y + 40))
-        screen.blit(small_font.render(f"📝 ON SCREEN: {len(self.words)}", True, BLUE), (stats_x, stats_y + 80))
-        screen.blit(small_font.render(f"❌ MISSED: {self.total_missed}", True, RED), (stats_x, stats_y + 120))
+        self.screen.blit(get_font(FONT_SMALL).render(f"⚡ SPEED: {current_speed:.1f}", True, ORANGE), (stats_x, stats_y))
+        self.screen.blit(get_font(FONT_SMALL).render(f"🌟 PERFECT: {self.perfect_words}", True, PURPLE), (stats_x, stats_y + 40))
+        self.screen.blit(get_font(FONT_SMALL).render(f"📝 ON SCREEN: {len(self.words)}", True, BLUE), (stats_x, stats_y + 80))
+        self.screen.blit(get_font(FONT_SMALL).render(f"❌ MISSED: {self.total_missed}", True, RED), (stats_x, stats_y + 120))
         
         total_attempts = self.words_typed + self.total_missed
         if total_attempts > 0:
             accuracy = (self.words_typed / total_attempts) * 100
-            screen.blit(small_font.render(f"🎯 ACCURACY: {accuracy:.1f}%", True, YELLOW), (stats_x, stats_y + 160))
+            self.screen.blit(get_font(FONT_SMALL).render(f"🎯 ACCURACY: {accuracy:.1f}%", True, YELLOW), (stats_x, stats_y + 160))
         
-        screen.blit(small_font.render(f"⌨️ Space/Enter: submit  |  Ctrl+K: clear", True, (150, 150, 150)), (stats_x, stats_y + 200))
+        self.screen.blit(get_font(FONT_SMALL).render("⌨️ Space/Enter: submit  |  Ctrl+K: clear", True, (150, 150, 150)), (stats_x, stats_y + 200))
         
         if not self.victory and not self.game_over:
-            screen.blit(small_font.render("TYPE:", True, GREEN), (50, HEIGHT - 80))
-            input_surface = font.render(f"{self.current_input}", True, GREEN)
-            screen.blit(input_surface, (150, HEIGHT - 88))
+            self.screen.blit(get_font(FONT_SMALL).render("TYPE:", True, GREEN), (50, HEIGHT - 80))
+            input_surface = get_font(FONT_NORMAL).render(f"{self.current_input}", True, GREEN)
+            self.screen.blit(input_surface, (150, HEIGHT - 88))
             if not self.dropdown.is_open and pygame.time.get_ticks() % 1000 < 500:
                 cursor_x = 150 + input_surface.get_width()
-                pygame.draw.line(screen, GREEN, (cursor_x, HEIGHT - 85), (cursor_x, HEIGHT - 45), 4)
+                pygame.draw.line(self.screen, GREEN, (cursor_x, HEIGHT - 85), (cursor_x, HEIGHT - 45), 4)
         
         if self.victory or self.game_over:
             overlay = pygame.Surface((WIDTH, HEIGHT))
             overlay.set_alpha(200)
             overlay.fill((20, 0, 30) if self.victory else ((30, 0, 0) if self.score/(self.score+self.total_missed if self.score+self.total_missed > 0 else 1) < 0.5 else (0, 0, 30)))
-            screen.blit(overlay, (0, 0))
+            self.screen.blit(overlay, (0, 0))
             
             banner_x, banner_y = WIDTH//2 - 300, HEIGHT//2 - 150
             banner_height = 360 if self.is_new_high_score else 320
             
-            pygame.draw.rect(screen, GOLD if self.victory else (DARK_RED if self.score/(self.score+self.total_missed if self.score+self.total_missed > 0 else 1) < 0.5 else DARK_BLUE), (banner_x, banner_y, 600, banner_height))
-            pygame.draw.rect(screen, GOLD if self.victory else (RED if self.score/(self.score+self.total_missed if self.score+self.total_missed > 0 else 1) < 0.5 else BLUE), (banner_x, banner_y, 600, banner_height), 4)
+            pygame.draw.rect(self.screen, GOLD if self.victory else (DARK_RED if self.score/(self.score+self.total_missed if self.score+self.total_missed > 0 else 1) < 0.5 else DARK_BLUE), (banner_x, banner_y, 600, banner_height))
+            pygame.draw.rect(self.screen, GOLD if self.victory else (RED if self.score/(self.score+self.total_missed if self.score+self.total_missed > 0 else 1) < 0.5 else BLUE), (banner_x, banner_y, 600, banner_height), 4)
             
-            title_text = big_font.render("🏆 VICTORY! 🏆" if self.victory else "GAME OVER", True, GOLD if self.victory else WHITE)
-            screen.blit(title_text, title_text.get_rect(center=(WIDTH//2, banner_y + 50)))
+            title_text = get_font(FONT_BIG).render("🏆 VICTORY! 🏆" if self.victory else "GAME OVER", True, GOLD if self.victory else WHITE)
+            self.screen.blit(title_text, title_text.get_rect(center=(WIDTH//2, banner_y + 50)))
             
-            score_text = font.render(f"✓ SCORE: {self.score} points", True, GREEN)
-            screen.blit(score_text, score_text.get_rect(center=(WIDTH//2, banner_y + 110)))
+            score_text = get_font(FONT_NORMAL).render(f"✓ SCORE: {self.score} points", True, GREEN)
+            self.screen.blit(score_text, score_text.get_rect(center=(WIDTH//2, banner_y + 110)))
             
-            missed_text = font.render(f"✗ MISSED: {self.total_missed} words", True, RED)
-            screen.blit(missed_text, missed_text.get_rect(center=(WIDTH//2, banner_y + 160)))
+            missed_text = get_font(FONT_NORMAL).render(f"✗ MISSED: {self.total_missed} words", True, RED)
+            self.screen.blit(missed_text, missed_text.get_rect(center=(WIDTH//2, banner_y + 160)))
             
             total_attempts = self.words_typed + self.total_missed
             accuracy = (self.words_typed / total_attempts) * 100 if total_attempts > 0 else 100
             
-            accuracy_text = font.render(f"🎯 ACCURACY: {accuracy:.1f}%", True, YELLOW)
-            screen.blit(accuracy_text, accuracy_text.get_rect(center=(WIDTH//2, banner_y + 210)))
+            accuracy_text = get_font(FONT_NORMAL).render(f"🎯 ACCURACY: {accuracy:.1f}%", True, YELLOW)
+            self.screen.blit(accuracy_text, accuracy_text.get_rect(center=(WIDTH//2, banner_y + 210)))
             
             if self.is_new_high_score:
-                hs_text = small_font.render("🎉 NEW HIGH SCORE! 🎉", True, PURPLE)
-                screen.blit(hs_text, hs_text.get_rect(center=(WIDTH//2, banner_y + 260)))
+                hs_text = get_font(FONT_SMALL).render("🎉 NEW HIGH SCORE! 🎉", True, PURPLE)
+                self.screen.blit(hs_text, hs_text.get_rect(center=(WIDTH//2, banner_y + 260)))
             
-            restart_text = small_font.render("Click RESET button to play again", True, WHITE)
-            screen.blit(restart_text, restart_text.get_rect(center=(WIDTH//2, HEIGHT - 50)))
+            restart_text = get_font(FONT_SMALL).render("Click RESET button to play again", True, WHITE)
+            self.screen.blit(restart_text, restart_text.get_rect(center=(WIDTH//2, HEIGHT - 50)))
 
-        self.dropdown.draw(screen)
+        self.dropdown.draw(self.screen)
         
         pygame.display.flip()
 
 def main():
-    if platform.system() != "Windows":
-        logger.warning("winsound only works on Windows. Sound will be disabled.")
-    
-    game = Game()
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
+    pygame.display.set_caption("Falling Words")
+    clock = pygame.time.Clock()
+    if not sounds.ENABLED:
+        logger.warning("winsound is Windows-only; sound is disabled.")
+
+    game = Game(screen)
     running = True
     
     while running:
@@ -528,6 +402,3 @@ def main():
     
     pygame.quit()
     sys.exit()
-
-if __name__ == "__main__":
-    main()
