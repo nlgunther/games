@@ -1,17 +1,22 @@
 """Falling Words: type each falling word and press Space or Enter before it reaches the bottom."""
+import argparse
 import random
 import sys
+from pathlib import Path
 
 import pygame
 from loguru import logger
 
 from . import sounds
-from .score_manager import ScoreManager
+from .coaching import display_name, intro_card, result_lines, streak_cheers, suggested_level
+from .profiles import DEFAULT_PROFILES_DIR, DIFFICULTY_SETTINGS, Profile, load_profile
+from .score_manager import ScoreManager, scores_path
 from .sounds import play
 from .sprite_manager import SpriteManager
-from .ui import (BLACK, BLUE, DARK_BLUE, DARK_GREEN, DARK_RED, FONT_BIG, FONT_NORMAL, FONT_SMALL,
+from .ui import (BLACK, BLUE, DARK_BLUE, DARK_GREEN, DARK_RED, FONT_BIG, FONT_BODY, FONT_NORMAL, FONT_SMALL, FONT_TITLE,
                  GOLD, GREEN, ORANGE, PURPLE, RED, WHITE, YELLOW,
-                 Button, Dropdown, FloatingText, get_font)
+                 Button, Dropdown, FloatingText, draw_dim_overlay, draw_keyboard, draw_wrapped, get_font)
+from .ui import KEYBOARD_WIDTH
 from .word_manager import WordManager
 
 TOTAL_WORDS = 30           
@@ -26,12 +31,6 @@ MIN_WORD_LENGTH = 3
 DECELERATION_RATE = 1.0
 NUMBER_OF_WORDS_BEFORE_LAG = 4
 LAG = 5  
-
-DIFFICULTY_SETTINGS = {
-    "BEGINNER": 1.0,
-    "STANDARD": 1.5,
-    "EXPERT": 2.0
-}
 
 WIDTH, HEIGHT = 900, 650
 FPS = 60
@@ -56,18 +55,19 @@ class Word:
         return self.y > HEIGHT - 100
 
 class Game:
-    def __init__(self, screen):
+    def __init__(self, screen, profile: Profile | None = None):
         self.screen = screen
-        self.word_manager = WordManager()
+        self.word_manager = WordManager(profile=profile)
         self.sprite_manager = SpriteManager(width=WIDTH, height=HEIGHT, enabled=True)
-        self.score_manager = ScoreManager()
+        self.score_manager = ScoreManager(scores_path(profile.name if profile else None))
+        self.player_name = display_name(profile.name) if profile else ""
         
         self.reset_button = Button(
             x=WIDTH - 130, y=20, width=110, height=40,
             text="🔄 RESET", color=DARK_GREEN, hover_color=GREEN
         )
         self.difficulties = list(DIFFICULTY_SETTINGS.keys())
-        self.difficulty_index = 0
+        self.difficulty_index = self.difficulties.index(profile.difficulty) if profile else 0
         self.diff_button = Button(
             x=WIDTH - 260, y=20, width=120, height=40,
             text=self.difficulties[self.difficulty_index], color=DARK_BLUE, hover_color=BLUE
@@ -85,7 +85,8 @@ class Game:
         )
         
         self.reset_game()
-    
+        self.show_intro()
+
     def reset_game(self):
         self.words = []
         self.floating_texts = []
@@ -98,6 +99,10 @@ class Game:
         self.game_over = False
         self.victory = False
         self.is_new_high_score = False
+        self.perfect_streak = 0
+        self.final_accuracy = 0.0
+        self.suggested_level = ""   # "" = no next level to suggest
+        self.result_text = []
         
         diff_name = self.difficulties[self.difficulty_index]
         self.current_speed = DIFFICULTY_SETTINGS[diff_name]
@@ -140,9 +145,18 @@ class Game:
             self.current_input = self.current_input[:-1]
     
     def handle_input(self, event):
-        if self.game_over or self.victory:
+        if event.key == pygame.K_F1:
+            self.show_intro()
             return
-        
+        if self.intro_open:
+            if event.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_ESCAPE):
+                self.dismiss_intro()
+            return
+        if self.game_over or self.victory:
+            if event.key == pygame.K_RETURN:
+                self.select_level(self.suggested_level) if self.suggested_level else self.reset_game()
+            return
+
         if self.dropdown.is_open:
             return
 
@@ -164,9 +178,13 @@ class Game:
                     if not self.made_mistake:
                         self.score += 2
                         self.perfect_words += 1
+                        self.perfect_streak += 1
                         self.floating_texts.append(FloatingText(150, HEIGHT - 110, "+2 Perfect!", PURPLE))
+                        for cheer in streak_cheers(self.player_name, self.perfect_streak):
+                            self.floating_texts.append(FloatingText(WIDTH // 2 - 200, HEIGHT // 2, cheer, GOLD))
                     else:
                         self.score += 1
+                        self.perfect_streak = 0
                     
                     self.current_input = ""
                     self.made_mistake = False
@@ -176,19 +194,13 @@ class Game:
                             self.spawn_word()
                     
                     if self.score >= TOTAL_WORDS and not self.victory:
-                        self.victory = True
-                        total_att = self.words_typed + self.total_missed
-                        accuracy = (self.words_typed / total_att * 100) if total_att > 0 else 0
-                        diff_name = self.difficulties[self.difficulty_index]
-                        self.is_new_high_score = self.score_manager.update_score(
-                            self.word_manager.current_level, diff_name, accuracy, self.perfect_words
-                        )
-                        play("victory")
+                        self._finish(won=True)
                     break
             
             if not matched:
                 self.current_input = ""
                 self.made_mistake = False
+                self.perfect_streak = 0
                 play("incorrect")
         
         elif event.unicode.isprintable():
@@ -211,7 +223,7 @@ class Game:
     
     def update(self):
         self.sprite_manager.update()
-        if self.victory or self.game_over:
+        if self.victory or self.game_over or self.intro_open:
             return
         
         if self.dropdown.is_open:
@@ -232,6 +244,7 @@ class Game:
                 self.words.remove(word)
                 self.total_missed += 1
                 self.total_attempts += 1
+                self.perfect_streak = 0
                 play("incorrect")
                 
                 if len(self.words) < MAX_WORDS_ON_SCREEN * 2 and pygame.time.get_ticks() > self.lag_end_time:
@@ -243,18 +256,79 @@ class Game:
                 self.floating_texts.remove(f_text)
         
         if len(self.words) > MAX_WORDS_ON_SCREEN * 2:
-            self.game_over = True
-            total_att = self.words_typed + self.total_missed
-            accuracy = (self.words_typed / total_att * 100) if total_att > 0 else 0
-            diff_name = self.difficulties[self.difficulty_index]
-            self.is_new_high_score = self.score_manager.update_score(
-                self.word_manager.current_level, diff_name, accuracy, self.perfect_words
-            )
-            if accuracy >= 50:
-                play("game_over_good")
-            else:
-                play("game_over_bad")
+            self._finish(won=False)
     
+    @property
+    def playing(self) -> bool:
+        return not (self.victory or self.game_over or self.intro_open)
+
+    def show_intro(self):
+        """Pause and show the coaching card (finger placement and keyboard picture) for this level."""
+        self.intro = intro_card(self.player_name, self.word_manager.level_letters())
+        self.intro_open = True
+
+    def dismiss_intro(self):
+        self.intro_open = False
+        self.last_spawn_time = pygame.time.get_ticks()  # restart the spawn timer; words resume where they were
+
+    def select_level(self, level_name):
+        self.word_manager.set_level(level_name)
+        self.dropdown.selected_index = self.word_manager.level_names.index(level_name)
+        self.reset_game()
+        self.show_intro()
+
+    def _finish(self, won: bool):
+        """End-of-game bookkeeping shared by a win and a loss."""
+        self.victory, self.game_over = won, not won
+        total = self.words_typed + self.total_missed
+        self.final_accuracy = self.words_typed / total * 100 if total else 0
+        self.is_new_high_score = self.score_manager.update_score(
+            self.word_manager.current_level, self.difficulties[self.difficulty_index],
+            self.final_accuracy, self.perfect_words)
+        self.suggested_level = suggested_level(won, self.final_accuracy, self.word_manager.next_graded_level())
+        self.result_text = result_lines(self.player_name, won, self.final_accuracy, self.perfect_words, self.suggested_level)
+        play("victory" if won else "game_over_good" if self.final_accuracy >= 50 else "game_over_bad")
+
+    def _draw_end_screen(self):
+        """Victory / game-over card: the stats, then the coaching message and what to press next."""
+        poor = not self.victory and self.final_accuracy < 50
+        fill, edge, dim = ((50, 40, 0), GOLD, (20, 0, 30)) if self.victory else (
+            (DARK_RED, RED, (30, 0, 0)) if poor else (DARK_BLUE, BLUE, (0, 0, 30)))
+        draw_dim_overlay(self.screen, dim)
+        banner = pygame.Rect(WIDTH // 2 - 330, 80, 660, 500 if self.is_new_high_score else 460)
+        pygame.draw.rect(self.screen, fill, banner)
+        pygame.draw.rect(self.screen, edge, banner, 4)
+
+        def centered(text, size, color, y):
+            surface = get_font(size).render(text, True, color)
+            self.screen.blit(surface, surface.get_rect(center=(WIDTH // 2, banner.top + y)))
+
+        centered("VICTORY!" if self.victory else "GAME OVER", FONT_BIG, GOLD if self.victory else WHITE, 45)
+        centered(f"SCORE: {self.score} points", FONT_NORMAL, GREEN, 105)
+        centered(f"MISSED: {self.total_missed} words", FONT_NORMAL, RED, 150)
+        centered(f"ACCURACY: {self.final_accuracy:.1f}%", FONT_NORMAL, YELLOW, 195)
+        if self.is_new_high_score:
+            centered("NEW HIGH SCORE!", FONT_SMALL, PURPLE, 240)
+        y = banner.top + (285 if self.is_new_high_score else 245)
+        for line in self.result_text:
+            y = draw_wrapped(self.screen, line, get_font(FONT_BODY), WHITE, banner.left + 30, y, banner.width - 60) + 8
+        hint = get_font(FONT_BODY).render("Or click RESET to restart this level.", True, (170, 170, 170))
+        self.screen.blit(hint, hint.get_rect(center=(WIDTH // 2, HEIGHT - 40)))
+
+    def _draw_intro(self):
+        """Coaching card: which rows and fingers this level uses, with a keyboard picture."""
+        draw_dim_overlay(self.screen, (10, 10, 30))
+        card = pygame.Rect(40, 70, WIDTH - 80, HEIGHT - 100)
+        pygame.draw.rect(self.screen, (20, 20, 45), card)
+        pygame.draw.rect(self.screen, GOLD, card, 4)
+        x, width = card.left + 25, card.width - 50
+        y = draw_wrapped(self.screen, self.intro.title, get_font(FONT_TITLE), GOLD, x, card.top + 18, width) + 10
+        for line in self.intro.lines:
+            y = draw_wrapped(self.screen, line, get_font(FONT_BODY), WHITE, x, y, width) + 6
+        draw_keyboard(self.screen, card.centerx - KEYBOARD_WIDTH // 2, y + 12, self.intro.keys)
+        footer = get_font(FONT_BODY).render("Press Space to start   |   F1 shows this guide again", True, (170, 170, 170))
+        self.screen.blit(footer, footer.get_rect(center=(card.centerx, card.bottom - 28)))
+
     def draw(self):
         self.screen.fill(BLACK)
         for x in range(0, WIDTH, 50):
@@ -273,7 +347,7 @@ class Game:
         self.fx_button.draw(self.screen)
         self.dropdown.update(mouse_pos)
         
-        if not self.victory and not self.game_over:
+        if self.playing:
             for word in self.words:
                 word.draw(self.screen)
             for f_text in self.floating_texts:
@@ -307,8 +381,9 @@ class Game:
             self.screen.blit(get_font(FONT_SMALL).render(f"🎯 ACCURACY: {accuracy:.1f}%", True, YELLOW), (stats_x, stats_y + 160))
         
         self.screen.blit(get_font(FONT_SMALL).render("⌨️ Space/Enter: submit  |  Ctrl+K: clear", True, (150, 150, 150)), (stats_x, stats_y + 200))
+        self.screen.blit(get_font(FONT_SMALL).render("F1: finger guide", True, (150, 150, 150)), (stats_x, stats_y + 232))
         
-        if not self.victory and not self.game_over:
+        if self.playing:
             self.screen.blit(get_font(FONT_SMALL).render("TYPE:", True, GREEN), (50, HEIGHT - 80))
             input_surface = get_font(FONT_NORMAL).render(f"{self.current_input}", True, GREEN)
             self.screen.blit(input_surface, (150, HEIGHT - 88))
@@ -317,52 +392,37 @@ class Game:
                 pygame.draw.line(self.screen, GREEN, (cursor_x, HEIGHT - 85), (cursor_x, HEIGHT - 45), 4)
         
         if self.victory or self.game_over:
-            overlay = pygame.Surface((WIDTH, HEIGHT))
-            overlay.set_alpha(200)
-            overlay.fill((20, 0, 30) if self.victory else ((30, 0, 0) if self.score/(self.score+self.total_missed if self.score+self.total_missed > 0 else 1) < 0.5 else (0, 0, 30)))
-            self.screen.blit(overlay, (0, 0))
-            
-            banner_x, banner_y = WIDTH//2 - 300, HEIGHT//2 - 150
-            banner_height = 360 if self.is_new_high_score else 320
-            
-            pygame.draw.rect(self.screen, GOLD if self.victory else (DARK_RED if self.score/(self.score+self.total_missed if self.score+self.total_missed > 0 else 1) < 0.5 else DARK_BLUE), (banner_x, banner_y, 600, banner_height))
-            pygame.draw.rect(self.screen, GOLD if self.victory else (RED if self.score/(self.score+self.total_missed if self.score+self.total_missed > 0 else 1) < 0.5 else BLUE), (banner_x, banner_y, 600, banner_height), 4)
-            
-            title_text = get_font(FONT_BIG).render("🏆 VICTORY! 🏆" if self.victory else "GAME OVER", True, GOLD if self.victory else WHITE)
-            self.screen.blit(title_text, title_text.get_rect(center=(WIDTH//2, banner_y + 50)))
-            
-            score_text = get_font(FONT_NORMAL).render(f"✓ SCORE: {self.score} points", True, GREEN)
-            self.screen.blit(score_text, score_text.get_rect(center=(WIDTH//2, banner_y + 110)))
-            
-            missed_text = get_font(FONT_NORMAL).render(f"✗ MISSED: {self.total_missed} words", True, RED)
-            self.screen.blit(missed_text, missed_text.get_rect(center=(WIDTH//2, banner_y + 160)))
-            
-            total_attempts = self.words_typed + self.total_missed
-            accuracy = (self.words_typed / total_attempts) * 100 if total_attempts > 0 else 100
-            
-            accuracy_text = get_font(FONT_NORMAL).render(f"🎯 ACCURACY: {accuracy:.1f}%", True, YELLOW)
-            self.screen.blit(accuracy_text, accuracy_text.get_rect(center=(WIDTH//2, banner_y + 210)))
-            
-            if self.is_new_high_score:
-                hs_text = get_font(FONT_SMALL).render("🎉 NEW HIGH SCORE! 🎉", True, PURPLE)
-                self.screen.blit(hs_text, hs_text.get_rect(center=(WIDTH//2, banner_y + 260)))
-            
-            restart_text = get_font(FONT_SMALL).render("Click RESET button to play again", True, WHITE)
-            self.screen.blit(restart_text, restart_text.get_rect(center=(WIDTH//2, HEIGHT - 50)))
+            self._draw_end_screen()
 
         self.dropdown.draw(self.screen)
+        if self.intro_open:
+            self._draw_intro()
         
         pygame.display.flip()
 
+def parse_args(argv=None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(prog="falling-words", description="A touch-typing game graded by keyboard row.")
+    parser.add_argument("--profile", help="player profile name, from profiles/<name>.json")
+    parser.add_argument("--profiles-dir", type=Path, default=DEFAULT_PROFILES_DIR,
+                        help="folder holding the profile files (default: ./profiles, so start the game in the project folder)")
+    return parser.parse_args(argv)
+
+
 def main():
+    args = parse_args()
+    try:
+        profile = load_profile(args.profile, args.profiles_dir) if args.profile else None
+    except (FileNotFoundError, ValueError) as e:
+        sys.exit(f"Profile error: {e}")
+
     pygame.init()
     screen = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Falling Words")
+    pygame.display.set_caption(f"Falling Words - {profile.name}" if profile else "Falling Words")
     clock = pygame.time.Clock()
     if not sounds.ENABLED:
         logger.warning("winsound is Windows-only; sound is disabled.")
 
-    game = Game(screen)
+    game = Game(screen, profile)
     running = True
     
     while running:
@@ -370,13 +430,16 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
                 
+            if game.intro_open and event.type == pygame.MOUSEBUTTONDOWN:
+                game.dismiss_intro()
+                continue
+
             dropdown_event = game.dropdown.handle_event(event)
             
             if dropdown_event == "OPENED" or dropdown_event == "CLOSED":
                 continue 
             elif dropdown_event:
-                game.word_manager.set_level(dropdown_event)
-                game.reset_game()
+                game.select_level(dropdown_event)
                 continue
                 
             if not game.dropdown.is_open:

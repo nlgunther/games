@@ -8,10 +8,9 @@ from pathlib import Path
 import pytest
 from build_words import rows_of  # tools/ is on pythonpath; single source of truth for row logic
 
-from falling_words.word_manager import WordManager
+from falling_words.word_manager import MAX_LEVELS, WordManager
 
 CONFIG = Path(__file__).resolve().parents[1] / "src" / "falling_words" / "words_config.json"
-MAX_LEVELS = 14  # dropdown rows (40 px each) must fit in the 650 px window
 
 
 @pytest.fixture(scope="module")

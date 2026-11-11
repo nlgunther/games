@@ -3,6 +3,8 @@ from functools import cache
 
 import pygame
 
+from .coaching import FINGER_OF, KEY_ROWS
+
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
 GREEN = (0, 255, 0)
@@ -17,6 +19,7 @@ DARK_BLUE = (0, 0, 150)
 GOLD = (255, 215, 0)
 
 FONT_NORMAL, FONT_SMALL, FONT_BIG, FONT_BUTTON = 48, 32, 72, 36
+FONT_TITLE, FONT_BODY, FONT_KEY = 40, 28, 26
 
 
 @cache
@@ -122,3 +125,58 @@ class Dropdown:
                     self.is_open = True
                     return "OPENED"
         return None
+
+
+# ---------- coaching card helpers ----------
+FINGER_COLORS = {"pinky": (200, 90, 200), "ring": (90, 150, 255), "middle": (80, 200, 120), "index": (255, 190, 60)}
+KEY_SIZE, KEY_GAP, ROW_INDENT = 42, 4, 20   # each row is shifted right like a real keyboard
+KEYBOARD_WIDTH = len(KEY_ROWS[0]) * (KEY_SIZE + KEY_GAP) + 2 * ROW_INDENT
+KEYBOARD_HEIGHT = len(KEY_ROWS) * (KEY_SIZE + KEY_GAP) + 34   # three rows plus the finger legend
+
+
+def draw_dim_overlay(surface, color, alpha=200) -> None:
+    overlay = pygame.Surface(surface.get_size())
+    overlay.set_alpha(alpha)
+    overlay.fill(color)
+    surface.blit(overlay, (0, 0))
+
+
+def draw_wrapped(surface, text, font, color, x, y, max_width) -> int:
+    """Draw `text` word-wrapped to `max_width`; returns the y just below the last line."""
+    line = ""
+    for word in text.split():
+        candidate = f"{line} {word}".strip()
+        if line and font.size(candidate)[0] > max_width:
+            surface.blit(font.render(line, True, color), (x, y))
+            y += font.get_linesize()
+            candidate = word
+        line = candidate
+    surface.blit(font.render(line, True, color), (x, y))
+    return y + font.get_linesize()
+
+
+def draw_keyboard(surface, left, top, highlighted) -> None:
+    """QWERTY picture: keys in `highlighted` are colored by finger, the rest are dim.
+
+    The little bar on F and J marks where the index fingers rest.
+    """
+    key_font = get_font(FONT_KEY)
+    for row, keys in enumerate(KEY_ROWS):
+        for col, key in enumerate(keys):
+            x = left + ROW_INDENT * row + col * (KEY_SIZE + KEY_GAP)
+            y = top + row * (KEY_SIZE + KEY_GAP)
+            rect = pygame.Rect(x, y, KEY_SIZE, KEY_SIZE)
+            lit = key in highlighted
+            pygame.draw.rect(surface, FINGER_COLORS[FINGER_OF[key][1]] if lit else (45, 45, 55), rect, border_radius=6)
+            label = key_font.render(key.upper(), True, (20, 20, 20) if lit else (110, 110, 120))
+            surface.blit(label, label.get_rect(center=rect.center))
+            if key in "fj":
+                pygame.draw.line(surface, (20, 20, 20) if lit else (110, 110, 120),
+                                 (x + 12, y + KEY_SIZE - 7), (x + KEY_SIZE - 12, y + KEY_SIZE - 7), 3)
+    legend_y = top + len(KEY_ROWS) * (KEY_SIZE + KEY_GAP) + 6
+    x = left + ROW_INDENT
+    for finger, color in FINGER_COLORS.items():
+        pygame.draw.rect(surface, color, (x, legend_y, 18, 18), border_radius=4)
+        text = get_font(FONT_BODY - 4).render(finger, True, WHITE)
+        surface.blit(text, (x + 24, legend_y - 1))
+        x += 24 + text.get_width() + 24

@@ -1,0 +1,14 @@
+{
+  "start_level": "1 Top row",
+  "difficulty": "BEGINNER",
+  "themes": {
+    "Animals": [
+      "zebra", "tiger", "panda", "koala", "otter", "eagle", "shark", "whale", "horse",
+      "mouse", "puppy", "kitten", "rabbit", "turtle", "dolphin"
+    ],
+    "Space": [
+      "planet", "comet", "orbit", "rocket", "galaxy", "meteor", "lunar", "solar", "saturn",
+      "nebula", "cosmos", "astro", "probe", "moon", "star"
+    ]
+  }
+}

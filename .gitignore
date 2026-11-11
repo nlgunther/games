@@ -80,6 +80,9 @@ coverage.xml
 *.csv
 *.json
 !words_config.json
+# Personal player profiles describe the kids; only the example is published
+**/profiles/*
+!**/profiles/example.json
 
 # Other files
 *.log

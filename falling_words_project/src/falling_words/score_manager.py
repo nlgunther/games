@@ -8,6 +8,17 @@ from loguru import logger
 DEFAULT_SCORES_PATH = Path.home() / ".falling_words" / "highscores.json"
 
 
+def scores_path(profile_name: str | None = None) -> Path:
+    """High-score file for a profile; no profile uses the shared default file.
+
+    Example:
+        scores_path("adam")   # ~/.falling_words/adam/highscores.json
+    """
+    if profile_name is None:
+        return DEFAULT_SCORES_PATH
+    return DEFAULT_SCORES_PATH.with_name(profile_name) / DEFAULT_SCORES_PATH.name
+
+
 class ScoreManager:
     def __init__(self, filepath: Path = DEFAULT_SCORES_PATH):
         self.filepath = Path(filepath)

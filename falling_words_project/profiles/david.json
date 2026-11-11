@@ -1,0 +1,24 @@
+{
+  "start_level": "1 Home: all",
+  "difficulty": "BEGINNER",
+  "themes": {
+    "Music": [
+      "allegro", "andante", "legato", "forte", "piano", "sonata", "arpeggio", "melody",
+      "rhythm", "tempo", "octave", "chord", "scale", "treble", "bass", "pedal", "concerto",
+      "etude", "fugue", "minor", "major", "sharp", "flat", "measure", "staff", "trill",
+      "waltz", "adagio", "presto", "prelude", "cadenza", "fermata"
+    ],
+    "Nintendo": [
+      "nintendo", "switch", "mario", "luigi", "peach", "yoshi", "bowser", "toad", "kirby",
+      "zelda", "link", "samus", "metroid", "pikmin", "pikachu", "pokemon", "splatoon",
+      "smash", "castle", "coin", "star", "mushroom", "fireball", "console", "arcade", "boss",
+      "quest", "level", "power"
+    ],
+    "Slides": [
+      "slide", "deck", "theme", "layout", "title", "image", "chart", "table", "shape",
+      "font", "color", "template", "present", "speaker", "notes", "outline", "animate",
+      "motion", "border", "bullet", "master", "share", "comment", "design", "format",
+      "insert", "canvas", "export"
+    ]
+  }
+}

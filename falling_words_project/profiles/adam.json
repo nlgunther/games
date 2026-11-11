@@ -1,0 +1,17 @@
+{
+  "start_level": "1 Home: all",
+  "difficulty": "BEGINNER",
+  "themes": {
+    "Roblox": [
+      "avatar", "obby", "tycoon", "server", "lobby", "spawn", "robux", "badge", "player",
+      "friend", "party", "studio", "script", "model", "mesh", "terrain", "gamepass",
+      "update", "creator", "builder", "parkour", "emote", "quest", "leader", "coins", "shop",
+      "world", "level"
+    ],
+    "Discord": [
+      "server", "channel", "emoji", "stream", "voice", "chat", "message", "member", "invite",
+      "thread", "forum", "role", "mute", "ping", "stage", "status", "sticker", "react",
+      "boost", "video", "group"
+    ]
+  }
+}
