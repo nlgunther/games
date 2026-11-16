@@ -15,12 +15,13 @@ from .sounds import play
 from .sprite_manager import SpriteManager
 from .ui import (BLACK, BLUE, DARK_BLUE, DARK_GREEN, DARK_RED, FONT_BIG, FONT_BODY, FONT_NORMAL, FONT_SMALL, FONT_TITLE,
                  GOLD, GREEN, ORANGE, PURPLE, RED, WHITE, YELLOW,
-                 Button, Dropdown, FloatingText, draw_dim_overlay, draw_keyboard, draw_wrapped, get_font)
+                 Button, Checkbox, Dropdown, FloatingText, Slider, draw_dim_overlay, draw_keyboard, draw_wrapped, get_font)
 from .ui import KEYBOARD_WIDTH
 from .word_manager import WordManager
 
 TOTAL_WORDS = 30           
-SPEED_INCREASE_PER_WORD = 0.02  
+SPEED_INCREASE_PER_WORD = 0.02  # extra speed per word typed, when the ramp-up box is ticked
+MIN_SPEED, MAX_SPEED, SPEED_STEP = 0.5, 2.5, 0.1
 MAX_WORDS_ON_SCREEN = 10   
 INITIAL_WORDS = 1          
 WORD_SPAWN_DELAY = 2.0     
@@ -58,7 +59,8 @@ class Game:
     def __init__(self, screen, profile: Profile | None = None):
         self.screen = screen
         self.word_manager = WordManager(profile=profile)
-        self.sprite_manager = SpriteManager(width=WIDTH, height=HEIGHT, enabled=True)
+        self.sprite_manager = SpriteManager(width=WIDTH, height=HEIGHT, enabled=True,
+                                          face_path=profile.face if profile else None)
         self.score_manager = ScoreManager(scores_path(profile.name if profile else None))
         self.player_name = display_name(profile.name) if profile else ""
         
@@ -66,12 +68,15 @@ class Game:
             x=WIDTH - 130, y=20, width=110, height=40,
             text="🔄 RESET", color=DARK_GREEN, hover_color=GREEN
         )
-        self.difficulties = list(DIFFICULTY_SETTINGS.keys())
-        self.difficulty_index = self.difficulties.index(profile.difficulty) if profile else 0
-        self.diff_button = Button(
-            x=WIDTH - 260, y=20, width=120, height=40,
-            text=self.difficulties[self.difficulty_index], color=DARK_BLUE, hover_color=BLUE
+        self.exit_button = Button(
+            x=WIDTH - 255, y=20, width=95, height=40,
+            text="EXIT", color=DARK_RED, hover_color=RED
         )
+        # The profile's difficulty only picks where the slider starts; the player can move it.
+        start_speed = DIFFICULTY_SETTINGS[profile.difficulty if profile else "BEGINNER"]
+        self.speed_slider = Slider(x=WIDTH - 300, y=270, width=250,
+                                   minimum=MIN_SPEED, maximum=MAX_SPEED, step=SPEED_STEP, value=start_speed)
+        self.ramp_box = Checkbox(x=WIDTH - 300, y=305, label="Speed up as I go", checked=True)
         self.fx_button = Button(
             x=WIDTH - 380, y=20, width=110, height=40,
             text="🌌 FX ON", color=(100, 0, 150), hover_color=PURPLE
@@ -104,8 +109,7 @@ class Game:
         self.suggested_level = ""   # "" = no next level to suggest
         self.result_text = []
         
-        diff_name = self.difficulties[self.difficulty_index]
-        self.current_speed = DIFFICULTY_SETTINGS[diff_name]
+        self.current_speed = self.speed_slider.value
         
         self.last_spawn_time = pygame.time.get_ticks()
         self.spawn_delay = int(WORD_SPAWN_DELAY * 1000)
@@ -119,11 +123,20 @@ class Game:
         for _ in range(INITIAL_WORDS):
             self.spawn_word()
     
+    def speed_now(self) -> float:
+        """Base fall speed right now: the slider's speed, plus the ramp-up if its box is ticked."""
+        ramp = SPEED_INCREASE_PER_WORD * self.words_typed if self.ramp_box.checked else 0.0
+        return self.current_speed + ramp
+
+    def score_key(self) -> str:
+        """High scores are kept per speed setting, so a slow game never competes with a fast one."""
+        return f"speed {self.current_speed:.1f} {'ramp' if self.ramp_box.checked else 'fixed'}"
+
     def spawn_word(self):
         word_text = self.word_manager.get_word()
         x = random.randint(10, WIDTH - 200)
         y = random.randint(10, 100)
-        current_base = self.current_speed + (self.words_typed * SPEED_INCREASE_PER_WORD)
+        current_base = self.speed_now()
         
         word_length = len(word_text)
         if word_length <= MIN_WORD_LENGTH:
@@ -283,7 +296,7 @@ class Game:
         total = self.words_typed + self.total_missed
         self.final_accuracy = self.words_typed / total * 100 if total else 0
         self.is_new_high_score = self.score_manager.update_score(
-            self.word_manager.current_level, self.difficulties[self.difficulty_index],
+            self.word_manager.current_level, self.score_key(),
             self.final_accuracy, self.perfect_words)
         self.suggested_level = suggested_level(won, self.final_accuracy, self.word_manager.next_graded_level())
         self.result_text = result_lines(self.player_name, won, self.final_accuracy, self.perfect_words, self.suggested_level)
@@ -341,10 +354,10 @@ class Game:
         mouse_pos = pygame.mouse.get_pos()
         self.reset_button.update(mouse_pos)
         self.reset_button.draw(self.screen)
-        self.diff_button.update(mouse_pos)
-        self.diff_button.draw(self.screen)
         self.fx_button.update(mouse_pos)
         self.fx_button.draw(self.screen)
+        self.exit_button.update(mouse_pos)
+        self.exit_button.draw(self.screen)
         self.dropdown.update(mouse_pos)
         
         if self.playing:
@@ -368,9 +381,11 @@ class Game:
         progress_text = get_font(FONT_SMALL).render(f"{self.score}/{TOTAL_WORDS} to win", True, WHITE)
         self.screen.blit(progress_text, progress_text.get_rect(center=(progress_x + progress_width//2, progress_y + progress_height//2)))
         
+        self.speed_slider.draw(self.screen, "START SPEED")
+        self.ramp_box.draw(self.screen)
+
         stats_x, stats_y = 20, 20
-        current_speed = self.current_speed + (self.words_typed * SPEED_INCREASE_PER_WORD)
-        self.screen.blit(get_font(FONT_SMALL).render(f"⚡ SPEED: {current_speed:.1f}", True, ORANGE), (stats_x, stats_y))
+        self.screen.blit(get_font(FONT_SMALL).render(f"⚡ SPEED: {self.speed_now():.1f}", True, ORANGE), (stats_x, stats_y))
         self.screen.blit(get_font(FONT_SMALL).render(f"🌟 PERFECT: {self.perfect_words}", True, PURPLE), (stats_x, stats_y + 40))
         self.screen.blit(get_font(FONT_SMALL).render(f"📝 ON SCREEN: {len(self.words)}", True, BLUE), (stats_x, stats_y + 80))
         self.screen.blit(get_font(FONT_SMALL).render(f"❌ MISSED: {self.total_missed}", True, RED), (stats_x, stats_y + 120))
@@ -422,7 +437,10 @@ def main():
     if not sounds.ENABLED:
         logger.warning("winsound is Windows-only; sound is disabled.")
 
-    game = Game(screen, profile)
+    try:
+        game = Game(screen, profile)
+    except ValueError as e:   # e.g. an unreadable face picture
+        sys.exit(f"Profile error: {e}")
     running = True
     
     while running:
@@ -430,6 +448,10 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
                 
+            if game.exit_button.handle_event(event):   # same as the window's X, wherever the player is
+                running = False
+                continue
+
             if game.intro_open and event.type == pygame.MOUSEBUTTONDOWN:
                 game.dismiss_intro()
                 continue
@@ -445,9 +467,7 @@ def main():
             if not game.dropdown.is_open:
                 if game.reset_button.handle_event(event):
                     game.reset_game()
-                elif game.diff_button.handle_event(event):
-                    game.difficulty_index = (game.difficulty_index + 1) % len(game.difficulties)
-                    game.diff_button.text = game.difficulties[game.difficulty_index]
+                elif game.speed_slider.handle_event(event) or game.ramp_box.handle_event(event):
                     game.reset_game()
                 elif game.fx_button.handle_event(event):
                     game.sprite_manager.toggle()

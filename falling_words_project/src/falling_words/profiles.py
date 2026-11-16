@@ -7,6 +7,10 @@ Example:
     {"start_level": "1 Top row", "difficulty": "BEGINNER",
      "themes": {"Roblox": ["avatar", "server", ...], "Discord": ["channel", "emoji", ...]}}
 
+An optional face picture, profiles/<name>.png (or .jpg / .jpeg), replaces the dinosaur among the
+floating background pictures. It is found by file name, so it needs no key in the JSON, and it lives
+in the git-ignored profiles folder so a child's photo is never published or bundled into the wheel.
+
 Run it with:  uv run falling-words --profile adam
 """
 import json
@@ -23,6 +27,7 @@ MIN_THEME_WORDS = 10    # a 30-point game needs variety, or words repeat constan
 DIFFICULTY_SETTINGS = {"BEGINNER": 1.0, "STANDARD": 1.5, "EXPERT": 2.0}
 
 _ALLOWED_KEYS = {"start_level", "difficulty", "themes"}
+FACE_EXTENSIONS = (".png", ".jpg", ".jpeg")   # tried in this order
 
 
 @dataclass(frozen=True)
@@ -31,6 +36,7 @@ class Profile:
     start_level: str | None = None
     difficulty: str = "BEGINNER"
     themes: dict[str, list[str]] = field(default_factory=dict)
+    face: Path | None = None   # photo shown instead of the dinosaur; None keeps the dinosaur
 
 
 def _check_theme(theme: str, words: list) -> None:
@@ -64,4 +70,5 @@ def load_profile(name: str, directory: Path = DEFAULT_PROFILES_DIR) -> Profile:
     themes = data.get("themes", {})
     for theme, words in themes.items():
         _check_theme(theme, words)
-    return Profile(name=name, start_level=data.get("start_level"), difficulty=difficulty, themes=themes)
+    face = next((f for ext in FACE_EXTENSIONS if (f := Path(directory) / f"{name}{ext}").is_file()), None)
+    return Profile(name=name, start_level=data.get("start_level"), difficulty=difficulty, themes=themes, face=face)

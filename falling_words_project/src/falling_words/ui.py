@@ -127,6 +127,86 @@ class Dropdown:
         return None
 
 
+class Slider:
+    """Horizontal slider with a labelled value. Drag the knob or click the track.
+
+    handle_event returns True only when the player lets go AND the value changed, so the
+    caller can restart the game once per adjustment instead of on every pixel of the drag.
+
+    Example:
+        speed = Slider(x=600, y=250, width=250, minimum=0.5, maximum=2.5, step=0.1, value=1.0)
+        if speed.handle_event(event):
+            print(speed.value)
+    """
+
+    KNOB_RADIUS = 11
+
+    def __init__(self, x, y, width, minimum, maximum, step, value):
+        if not minimum <= value <= maximum:
+            raise ValueError(f"slider value {value} outside {minimum}..{maximum}")
+        self.left, self.y, self.width = x, y, width
+        self.minimum, self.maximum, self.step = minimum, maximum, step
+        self.value = value
+        self.dragging = False
+        self._value_at_press = value
+        self.hit_rect = pygame.Rect(x - self.KNOB_RADIUS, y - self.KNOB_RADIUS, width + 2 * self.KNOB_RADIUS,
+                                    2 * self.KNOB_RADIUS)
+
+    def value_at(self, mouse_x) -> float:
+        """Slider value for a mouse x position, snapped to the step and clamped to the range."""
+        fraction = min(1.0, max(0.0, (mouse_x - self.left) / self.width))
+        steps = round(fraction * (self.maximum - self.minimum) / self.step)
+        return round(self.minimum + steps * self.step, 2)
+
+    def handle_event(self, event) -> bool:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.hit_rect.collidepoint(event.pos):
+            self.dragging, self._value_at_press = True, self.value
+            self.value = self.value_at(event.pos[0])
+        elif event.type == pygame.MOUSEMOTION and self.dragging:
+            self.value = self.value_at(event.pos[0])
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.dragging:
+            self.dragging = False
+            return self.value != self._value_at_press
+        return False
+
+    def draw(self, surface, label):
+        text = get_font(FONT_SMALL).render(f"{label}: {self.value:.1f}", True, ORANGE)
+        surface.blit(text, (self.left, self.y - 38))
+        pygame.draw.line(surface, (90, 90, 90), (self.left, self.y), (self.left + self.width, self.y), 6)
+        knob_x = self.left + round((self.value - self.minimum) / (self.maximum - self.minimum) * self.width)
+        pygame.draw.line(surface, ORANGE, (self.left, self.y), (knob_x, self.y), 6)
+        pygame.draw.circle(surface, WHITE, (knob_x, self.y), self.KNOB_RADIUS)
+        pygame.draw.circle(surface, ORANGE, (knob_x, self.y), self.KNOB_RADIUS - 4)
+
+
+class Checkbox:
+    """A labelled tick box; handle_event returns True when it was clicked (and so toggled)."""
+
+    SIZE = 26
+
+    def __init__(self, x, y, label, checked=True):
+        self.rect = pygame.Rect(x, y, self.SIZE, self.SIZE)
+        self.label, self.checked = label, checked
+        text_width = get_font(FONT_SMALL).size(label)[0]
+        self.hit_rect = pygame.Rect(x, y, self.SIZE + 10 + text_width, self.SIZE)
+
+    def handle_event(self, event) -> bool:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and self.hit_rect.collidepoint(event.pos):
+            self.checked = not self.checked
+            return True
+        return False
+
+    def draw(self, surface):
+        pygame.draw.rect(surface, (40, 40, 40), self.rect, border_radius=4)
+        pygame.draw.rect(surface, WHITE, self.rect, 2, border_radius=4)
+        if self.checked:
+            r = self.rect
+            pygame.draw.lines(surface, GREEN, False, [(r.x + 5, r.centery), (r.x + 10, r.bottom - 7),
+                                                      (r.right - 5, r.y + 6)], 4)
+        text = get_font(FONT_SMALL).render(self.label, True, WHITE)
+        surface.blit(text, (self.rect.right + 10, self.rect.centery - text.get_height() // 2))
+
+
 # ---------- coaching card helpers ----------
 FINGER_COLORS = {"pinky": (200, 90, 200), "ring": (90, 150, 255), "middle": (80, 200, 120), "index": (255, 190, 60)}
 KEY_SIZE, KEY_GAP, ROW_INDENT = 42, 4, 20   # each row is shifted right like a real keyboard

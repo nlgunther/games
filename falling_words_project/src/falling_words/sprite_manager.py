@@ -4,6 +4,34 @@ import os
 import glob
 from loguru import logger
 
+DINOSAUR_ASSET = "purple_dinosaur.png"
+FACE_SIZE = 128   # stored large and scaled down per sprite (40-90 px), so it stays sharp
+
+
+def circular_crop(photo: pygame.Surface, size: int = FACE_SIZE) -> pygame.Surface:
+    """Centre-square crop of a photo, scaled to `size` and cut to a circle (corners transparent).
+
+    Example:
+        face = circular_crop(pygame.image.load("adam.png"))
+    """
+    side = min(photo.get_size())
+    left, top = (photo.get_width() - side) // 2, (photo.get_height() - side) // 2
+    square = pygame.transform.smoothscale(photo.subsurface((left, top, side, side)).convert(), (size, size))
+    square = square.convert_alpha()   # opaque pixels, so only the circle mask decides transparency
+    face = pygame.Surface((size, size), pygame.SRCALPHA)
+    pygame.draw.circle(face, (255, 255, 255, 255), (size // 2, size // 2), size // 2)
+    face.blit(square, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)   # keeps pixels only inside the circle
+    return face
+
+
+def load_face(path) -> pygame.Surface:
+    """Load a player's photo as a circular sprite; an unreadable file raises instead of being skipped."""
+    try:
+        return circular_crop(pygame.image.load(str(path)))
+    except (pygame.error, FileNotFoundError) as e:
+        raise ValueError(f"Cannot read face picture {path}: {e}") from e
+
+
 class FloatingSprite:
     def __init__(self, screen_width, screen_height, image_surface=None):
         self.screen_width = screen_width
@@ -60,7 +88,7 @@ class FloatingSprite:
         return False
 
 class SpriteManager:
-    def __init__(self, width, height, enabled=True, asset_folder="assets"):
+    def __init__(self, width, height, enabled=True, asset_folder="assets", face_path=None):
         self.enabled = enabled
         self.width = width
         self.height = height
@@ -68,10 +96,12 @@ class SpriteManager:
         self.spawn_chance = 0.01  
         self.max_sprites = 5
         self.loaded_images = []
-        self.load_assets(asset_folder)
+        self.load_assets(asset_folder, skip=DINOSAUR_ASSET if face_path else None)
+        if face_path:
+            self.loaded_images.append(load_face(face_path))   # the player's face takes the dinosaur's place
         logger.info(f"SpriteManager initialized. Enabled: {self.enabled}")
 
-    def load_assets(self, folder_name):
+    def load_assets(self, folder_name, skip=None):
         base_dir = os.path.dirname(os.path.abspath(__file__))
         asset_dir = os.path.join(base_dir, folder_name)
         if not os.path.exists(asset_dir):
@@ -83,6 +113,8 @@ class SpriteManager:
                 return
         png_files = glob.glob(os.path.join(asset_dir, "*.png"))
         for file_path in png_files:
+            if os.path.basename(file_path) == skip:
+                continue
             try:
                 img = pygame.image.load(file_path).convert_alpha()
                 self.loaded_images.append(img)

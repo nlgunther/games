@@ -88,14 +88,14 @@ def test_each_profile_gets_its_own_score_file():
     assert scores_path("adam").parent.name == "adam"
 
 
-def test_game_starts_at_profile_difficulty(monkeypatch, tmp_path):
+def test_slider_starts_at_profile_difficulty(monkeypatch, tmp_path):
     monkeypatch.setenv("SDL_VIDEODRIVER", "dummy")
     monkeypatch.setenv("SDL_AUDIODRIVER", "dummy")
     monkeypatch.setattr("falling_words.score_manager.DEFAULT_SCORES_PATH", tmp_path / "highscores.json")
     import pygame
     pygame.init()
     game = Game(pygame.display.set_mode((900, 650)), Profile(name="kid", difficulty="EXPERT"))
-    assert game.difficulties[game.difficulty_index] == "EXPERT"
+    assert game.speed_slider.value == 2.0   # the profile difficulty only sets the slider's start
     pygame.quit()
 
 
