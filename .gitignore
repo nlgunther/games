@@ -80,6 +80,8 @@ coverage.xml
 *.csv
 *.json
 !words_config.json
+!game_settings.json
+!settings.example.json
 # Personal player profiles describe the kids; only the example is published
 **/profiles/*
 !**/profiles/example.json

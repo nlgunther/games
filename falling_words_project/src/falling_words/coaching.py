@@ -21,6 +21,9 @@ _RIGHT = (("index", "yhn"), ("index", "ujm"), ("middle", "ik,"), ("ring", "ol.")
 FINGER_OF = ({k: ("left", f) for f, keys in _LEFT for k in keys}
              | {k: ("right", f) for f, keys in _RIGHT for k in keys})
 
+# Finger numbers as taught: 1 = index ... 4 = pinky. A key's code is hand initial + number, e.g. "R1".
+FINGER_NUMBER = {"index": 1, "middle": 2, "ring": 3, "pinky": 4}
+
 HOME_LEFT, HOME_RIGHT = "asdf", "jkl;"
 NEXT_LEVEL_ACCURACY = 80   # a win at or above this suggests moving on
 STREAK_STEP = 5            # cheer every this many perfect words in a row
@@ -32,6 +35,15 @@ class IntroCard:
     title: str
     lines: tuple[str, ...]
     keys: frozenset[str]   # keys to highlight on the keyboard picture
+
+
+def finger_code(key: str) -> str:
+    """Hand and finger for a key: "h" gives "R1" (right index), "a" gives "L4" (left pinky).
+
+    Raises KeyError for a key that is not on the keyboard picture.
+    """
+    hand, finger = FINGER_OF[key]
+    return f"{hand[0].upper()}{FINGER_NUMBER[finger]}"
 
 
 def display_name(profile_name: str) -> str:

@@ -3,7 +3,7 @@ from functools import cache
 
 import pygame
 
-from .coaching import FINGER_OF, KEY_ROWS
+from .coaching import FINGER_NUMBER, FINGER_OF, KEY_ROWS, finger_code
 
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
@@ -209,9 +209,32 @@ class Checkbox:
 
 # ---------- coaching card helpers ----------
 FINGER_COLORS = {"pinky": (200, 90, 200), "ring": (90, 150, 255), "middle": (80, 200, 120), "index": (255, 190, 60)}
+WORD_COL_WIDTH, CODE_FONT = 32, 22   # one letter's column in finger-code mode, and its small code text
 KEY_SIZE, KEY_GAP, ROW_INDENT = 42, 4, 20   # each row is shifted right like a real keyboard
 KEYBOARD_WIDTH = len(KEY_ROWS[0]) * (KEY_SIZE + KEY_GAP) + 2 * ROW_INDENT
 KEYBOARD_HEIGHT = len(KEY_ROWS) * (KEY_SIZE + KEY_GAP) + 34   # three rows plus the finger legend
+
+
+def draw_word(surface, text, x, y, typed="", show_codes=False) -> None:
+    """Draw a falling word. With `show_codes`, each letter gets its hand and finger under it.
+
+    Each letter sits in a fixed-width column with its code (e.g. "R1") centered beneath, colored by
+    finger, and letters already typed correctly turn green. Without it, the word is plain white text.
+
+    Example:
+        draw_word(screen, "haha", 100, 50, typed="h", show_codes=True)
+    """
+    if not show_codes:
+        surface.blit(get_font(FONT_NORMAL).render(text, True, WHITE), (x, y))
+        return
+    done = len(typed) if text.lower().startswith(typed.lower()) else 0
+    letter_font, code_font = get_font(FONT_NORMAL), get_font(CODE_FONT)
+    for i, ch in enumerate(text):
+        center_x = x + i * WORD_COL_WIDTH + WORD_COL_WIDTH // 2
+        letter = letter_font.render(ch, True, GREEN if i < done else WHITE)
+        surface.blit(letter, letter.get_rect(midtop=(center_x, y)))
+        code = code_font.render(finger_code(ch), True, FINGER_COLORS[FINGER_OF[ch][1]])
+        surface.blit(code, code.get_rect(midtop=(center_x, y + letter.get_height())))
 
 
 def draw_dim_overlay(surface, color, alpha=200) -> None:
@@ -257,6 +280,6 @@ def draw_keyboard(surface, left, top, highlighted) -> None:
     x = left + ROW_INDENT
     for finger, color in FINGER_COLORS.items():
         pygame.draw.rect(surface, color, (x, legend_y, 18, 18), border_radius=4)
-        text = get_font(FONT_BODY - 4).render(finger, True, WHITE)
+        text = get_font(FONT_BODY - 4).render(f"{FINGER_NUMBER[finger]} {finger}", True, WHITE)
         surface.blit(text, (x + 24, legend_y - 1))
         x += 24 + text.get_width() + 24

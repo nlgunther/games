@@ -41,3 +41,19 @@ def test_suggested_level():
     assert c.suggested_level(True, 100, "2 Home+Top") == "2 Home+Top"
     assert c.suggested_level(False, 100, "2 Home+Top") == ""
     assert c.suggested_level(True, 100, "") == ""
+
+
+def test_finger_code_matches_the_design_sketch():
+    assert c.finger_code("h") == "R1" and c.finger_code("a") == "L4"
+    assert c.finger_code("d") == "L2" and c.finger_code("o") == "R3"
+
+
+def test_every_letter_has_one_of_eight_codes():
+    codes = {c.finger_code(k) for k in "abcdefghijklmnopqrstuvwxyz"}
+    assert codes == {f"{h}{n}" for h in "LR" for n in "1234"}
+
+
+def test_unknown_key_raises():
+    import pytest
+    with pytest.raises(KeyError):
+        c.finger_code("5")

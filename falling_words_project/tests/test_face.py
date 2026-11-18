@@ -63,3 +63,18 @@ def test_unreadable_face_raises(pg, tmp_path):
         load_face(bad)
     with pytest.raises(ValueError, match="Cannot read face picture"):
         load_face(tmp_path / "missing.png")
+
+
+def test_draw_word_codes_and_typed_letters_turn_green(pg):
+    from falling_words.ui import GREEN, draw_word
+    pg.font.init()
+
+    def green_pixels(typed, show_codes=True):
+        surface = pg.Surface((300, 100))
+        draw_word(surface, "haha", 10, 10, typed=typed, show_codes=show_codes)
+        return sum(1 for x in range(300) for y in range(100) if tuple(surface.get_at((x, y)))[:3] == GREEN)
+
+    assert green_pixels("") == 0
+    assert green_pixels("ha") > 0
+    assert green_pixels("hx") == 0          # a wrong letter highlights nothing
+    assert green_pixels("ha", show_codes=False) == 0   # plain mode is unchanged

@@ -1,0 +1,5 @@
+{
+  "finger_codes_speed_factor": 0.1,
+  "ramp_up_by_default": false,
+  "speed_jitter": 0.0
+}
